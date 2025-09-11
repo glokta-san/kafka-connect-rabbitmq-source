@@ -10,6 +10,7 @@ import java.util.Map;
 import java.io.IOException;
 import java.util.concurrent.TimeoutException;
 
+import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.source.SourceRecord;
@@ -32,7 +33,8 @@ public class RabbitMQSourceTask extends SourceTask {
     private Connection connection;
 
     /**
-     * Get the version of this task. Usually this should be the same as the corresponding {@link Connector} class's version.
+     * Get the version of this task. Usually this should be the same as the corresponding
+     * {@link org.apache.kafka.connect.connector.Connector} class's version.
      *
      * @return the version, formatted as a String
      */
@@ -97,10 +99,6 @@ public class RabbitMQSourceTask extends SourceTask {
      * trying to poll for new data and interrupt any outstanding poll() requests. It is not required that the task has
      * fully stopped. Note that this method necessarily may be invoked from a different thread than {@link #poll()} and
      * {@link #commit()}.
-     *
-     * For example, if a task uses a {@link java.nio.channels.Selector} to receive data over the network, this method
-     * could set a flag that will force {@link #poll()} to exit immediately and invoke
-     * {@link java.nio.channels.Selector#wakeup() wakeup()} to interrupt any ongoing requests.
      */
     @Override public void stop() {
         try {
@@ -111,19 +109,10 @@ public class RabbitMQSourceTask extends SourceTask {
     }
 
     /**
-     * <p>
-     * Commit an individual {@link SourceRecord} when the callback from the producer client is received, or if a record is filtered by a transformation.
-     * </p>
-     * <p>
-     * SourceTasks are not required to implement this functionality; Kafka Connect will record offsets
-     * automatically. This hook is provided for systems that also need to store offsets internally
-     * in their own system.
-     * </p>
-     *
-     * @param record {@link SourceRecord} that was successfully sent via the producer.
-     * @throws InterruptedException
+     * Modern overload used by Kafka Connect 2.5+ and retained in 4.x.
+     * Ack the RabbitMQ delivery only after the record is written to Kafka.
      */
-    @Override public void commitRecord(SourceRecord record) throws InterruptedException {
+    @Override public void commitRecord(SourceRecord record, RecordMetadata metadata) throws InterruptedException {
         Long deliveryTag = (Long) record.sourceOffset().get(EnvelopeSchema.FIELD_DELIVERYTAG);
         try {
             this.channel.basicAck(deliveryTag, false);

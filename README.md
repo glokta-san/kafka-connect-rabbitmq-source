@@ -1,20 +1,47 @@
 # Kafka Connect source connector for RabbitMQ
 kafka-connect-rabbitmq-source is a [Kafka Connect](http://kafka.apache.org/documentation.html#connect) source connector for copying data from RabbitMQ into Apache Kafka.
 
+## Fork provenance and scope
+
+This repository is a community-maintained fork of IBM's original RabbitMQ source connector. It retains the core behaviour of the upstream project while layering in the upgrades required for current Kafka Connect runtimes. Recent updates include:
+
+- Dependency and toolchain alignment with Kafka Connect 3.x/4.x so the connector builds against modern Java 17-based platforms.
+- Hardened TLS configuration options and documentation to simplify secure deployments.
+
+These changes build on the original connector and aim to keep it drop-in compatible for existing deployments while signalling the additional maintenance performed in this fork.
+
 The connector is supplied as source code which you can easily build into a JAR file.
+
+## Release highlights
+
+### 1.1.0 (current)
+
+- Modernised for Kafka Connect 3.x/4.x runtimes by compiling against Java 17 APIs.
+- TLS defaults tightened with clearer guidance for supplying trust and key material.
+- Preserves drop-in compatibility with prior 1.0.x deployments while advertising the
+  fork-specific maintenance scope.
+
+See [CHANGELOG.md](CHANGELOG.md) for a full list of updates since the upstream 1.0.0
+release.
+
+## Version compatibility
+
+| Connector | Kafka Connect baseline | Java runtime |
+|-----------|------------------------|--------------|
+| 1.1.0     | 3.9.x                  | 17           |
 
 ## Installation
 
 1. Clone the repository with the following command:
 
 ```bash
-git@github.com:ibm-messaging/kafka-connect-rabbitmq-source.git
+git clone git@github.com:glokta-san/kafka-connect-rabbitmq-source.git
 ```
 
-2. Change directory to the `kafka-connect-mq-source` directory:
+2. Change directory to the `kafka-connect-rabbitmq-source` directory:
 
 ```shell
-cd kafka-connect-mq-source
+cd kafka-connect-rabbitmq-source
 ```
 
 3. Build the connector using Maven:
@@ -29,10 +56,11 @@ mvn clean package
 
 6. Setup a local rabbitmq service running on port 15672 (default)
 
-7. Copy the compiled jar file into the `/usr/local/share/java/` directory:
+7. Copy the compiled jar file into the `/usr/local/share/java/` directory. Adjust the
+   filename if you are packaging a newer release tag:
 
 ```bash
-cp target/kafka-connect-rabbitmq-source-1.0-SNAPSHOT-jar-with-dependencies.jar /usr/local/share/java/
+cp target/kafka-connect-rabbitmq-source-1.1.0-jar-with-dependencies.jar /usr/local/share/java/
 ```
 
 8. Copy the `connect-standalone.properties` and `rabbitmq-source.properties` files into the `/usr/local/etc/kafka/` directory.
@@ -112,6 +140,28 @@ kafka-topics --create --topic kafka_test --partitions 3 --replication-factor 1 -
 Go to the RabbitMQ site at the following URL: `http://localhost:15672/`
 
 Create a new queue `rabbitmq_test`.
+
+### TLS / SSL configuration
+
+When connecting to a RabbitMQ broker that requires TLS, enable TLS in the connector configuration and supply the TLS material as needed.
+
+```
+rabbitmq.ssl.enabled=true
+# Optional – defaults to TLSv1.2
+rabbitmq.ssl.algorithm=TLSv1.3
+
+# Truststore used to validate the broker certificate
+rabbitmq.ssl.truststore.path=/opt/rabbitmq/client-truststore.p12
+rabbitmq.ssl.truststore.password=changeit
+rabbitmq.ssl.truststore.type=PKCS12
+
+# Optional keystore when using mutual TLS
+rabbitmq.ssl.keystore.path=/opt/rabbitmq/client-keystore.p12
+rabbitmq.ssl.keystore.password=changeit
+rabbitmq.ssl.keystore.type=PKCS12
+```
+
+If TLS is enabled without providing custom trust or key stores, the connector falls back to the JVM defaults. Leaving the keystore properties empty disables client certificate authentication while still using TLS to encrypt the connection.
 
 ### Kafka Record Key
 
