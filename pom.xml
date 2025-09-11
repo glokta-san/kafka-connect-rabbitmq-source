@@ -29,17 +29,17 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.1</version>
+                <version>3.11.0</version>
                 <configuration>
-                    <source>8</source>
-                    <target>8</target>
+                    <!-- Use Java 17 toolchain; this is compatible with Kafka Connect 4.x / Debezium 3.x runtime -->
+                    <release>17</release>
                     <compilerArgument>-Xlint:all</compilerArgument>
                 </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-assembly-plugin</artifactId>
-                <version>2.3</version>
+                <version>3.6.0</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -65,10 +65,9 @@
     </build>
 
     <properties>
-        <rabbitmq.version>5.7.1</rabbitmq.version>
-        <kafka.version>2.4.0</kafka.version>
-        <maven.compiler.source>1.8</maven.compiler.source>
-        <maven.compiler.target>1.8</maven.compiler.target>
+        <rabbitmq.version>5.26.0</rabbitmq.version>
+        <kafka.version>4.0.0</kafka.version>
+        <maven.compiler.release>17</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     </properties>
@@ -80,6 +79,8 @@
             <version>${rabbitmq.version}</version>
             <scope>compile</scope>
         </dependency>
+
+        <!-- Kafka Connect APIs -->
         <dependency>
             <groupId>org.apache.kafka</groupId>
             <artifactId>connect-api</artifactId>
@@ -91,10 +92,12 @@
             <version>${kafka.version}</version>
             <scope>provided</scope>
         </dependency>
+
+        <!-- Replace legacy google-collections with modern Guava for ImmutableMap, etc. -->
         <dependency>
-            <groupId>com.google.collections</groupId>
-            <artifactId>google-collections</artifactId>
-            <version>1.0-rc2</version>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>33.4.7-jre</version>
         </dependency>
     </dependencies>
 

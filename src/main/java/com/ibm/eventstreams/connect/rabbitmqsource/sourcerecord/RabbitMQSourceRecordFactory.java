@@ -8,15 +8,16 @@ import com.ibm.eventstreams.connect.rabbitmqsource.schema.ValueSchema;
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Envelope;
 import com.rabbitmq.client.LongString;
-import org.apache.kafka.common.utils.SystemTime;
-import org.apache.kafka.common.utils.Time;
 import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.header.ConnectHeaders;
 import org.apache.kafka.connect.header.Header;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Clock;
 import java.util.*;
 
 import static org.apache.kafka.connect.data.Schema.*;
@@ -25,61 +26,66 @@ public class RabbitMQSourceRecordFactory {
     private static final Logger logger = LoggerFactory.getLogger(RabbitMQSourceRecordFactory.class);
 
     private final RabbitMQSourceConnectorConfig config;
-    private final Time time = new SystemTime();
+    private final Clock clock = Clock.systemUTC();
 
     public RabbitMQSourceRecordFactory(RabbitMQSourceConnectorConfig config) {
         this.config = config;
     }
 
-
-    private Header toConnectHeader(String key, Object value) {
-        return new Header() {
-            @Override
-            public String key() {
-                return key;
-            }
-
-            @Override
-            public Schema schema() {
-                return BYTES_SCHEMA;
-            }
-
-            @Override
-            public Object value() {
-                return value;
-            }
-
-            @Override
-            public Header with(Schema schema, Object o) {
-                return null;
-            }
-
-            @Override
-            public Header rename(String s) {
-                return null;
-            }
-        };
-    }
-
-    private List<Header> toConnectHeaders(Map<String, Object> ampqHeaders) {
-        List<Header> headers = new ArrayList<>();
+    private ConnectHeaders toConnectHeaders(Map<String, Object> ampqHeaders) {
+        ConnectHeaders headers = new ConnectHeaders();
+        if (ampqHeaders == null || ampqHeaders.isEmpty()) {
+            return headers;
+        }
 
         for (Map.Entry<String, Object> kvp : ampqHeaders.entrySet()) {
-            Object headerValue = kvp.getValue();
+            final String key = kvp.getKey();
+            Object value = kvp.getValue();
 
-            if (headerValue instanceof LongString) {
-                headerValue = kvp.getValue().toString();
-            } else if (kvp.getValue() instanceof List) {
-                final List<LongString> list = (List<LongString>) headerValue;
+            // Normalize RabbitMQ-specific header container types
+            if (value instanceof LongString) {
+                // store as string
+                headers.addString(key, value.toString());
+                continue;
+            }
+            if (value instanceof List) {
+                @SuppressWarnings("unchecked")
+                final List<LongString> list = (List<LongString>) value;
                 final List<String> values = new ArrayList<>(list.size());
                 for (LongString l : list) {
                     values.add(l.toString());
                 }
-                headerValue = values;
+                // add a list-of-strings header with an explicit array schema for forward-compat
+                final Schema arrayOfString = SchemaBuilder.array(Schema.STRING_SCHEMA).optional().build();
+                headers.addList(key, values, arrayOfString);
+                continue;
             }
 
-            Header header = toConnectHeader(kvp.getKey(), headerValue);
-            headers.add(header);
+            // Use typed adders when possible; otherwise fall back to generic with schema last
+            if (value == null) {
+                headers.add(key, null, OPTIONAL_STRING_SCHEMA);
+            } else if (value instanceof String) {
+                headers.addString(key, (String) value);
+            } else if (value instanceof Integer) {
+                headers.addInt(key, (Integer) value);
+            } else if (value instanceof Long) {
+                headers.addLong(key, (Long) value);
+            } else if (value instanceof Short) {
+                headers.addShort(key, (Short) value);
+            } else if (value instanceof Byte) {
+                headers.addByte(key, (Byte) value);
+            } else if (value instanceof Boolean) {
+                headers.addBoolean(key, (Boolean) value);
+            } else if (value instanceof Float) {
+                headers.addFloat(key, (Float) value);
+            } else if (value instanceof Double) {
+                headers.addDouble(key, (Double) value);
+            } else if (value instanceof Date) {
+                headers.addTimestamp(key, (Date) value);
+            } else {
+                // generic fallback as string to avoid classloader/type issues across Connect versions
+                headers.add(key, value.toString(), OPTIONAL_STRING_SCHEMA);
+            }
         }
 
         return headers;
@@ -92,17 +98,17 @@ public class RabbitMQSourceRecordFactory {
 
         Object key = null;
         if (basicProperties.getHeaders() != null){
-        	key = basicProperties.getHeaders().get(KeySchema.KEY);
+            key = basicProperties.getHeaders().get(KeySchema.KEY);
         }
         key = key == null ? null : key.toString();
         final Struct value = ValueSchema.toStruct(consumerTag, envelope, basicProperties, bytes);
 
-        List<Header> headers = new ArrayList<Header>();
+        ConnectHeaders headers = new ConnectHeaders();
         if (basicProperties.getHeaders() != null) {
-        	headers = toConnectHeaders(basicProperties.getHeaders());
+            headers = toConnectHeaders(basicProperties.getHeaders());
         }
         final String messageBody = value.getString(ValueSchema.FIELD_MESSAGE_BODY);
-        long timestamp = Optional.ofNullable(basicProperties.getTimestamp()).map(Date::getTime).orElse(this.time.milliseconds());
+        long timestamp = Optional.ofNullable(basicProperties.getTimestamp()).map(Date::getTime).orElse(clock.millis());
 
         return new SourceRecord(
                 sourcePartition,
