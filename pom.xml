@@ -66,7 +66,7 @@
 
     <properties>
         <rabbitmq.version>5.26.0</rabbitmq.version>
-        <kafka.version>4.0.0</kafka.version>
+        <kafka.version>3.9.0</kafka.version>
         <maven.compiler.release>17</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
@@ -85,6 +85,7 @@
             <groupId>org.apache.kafka</groupId>
             <artifactId>connect-api</artifactId>
             <version>${kafka.version}</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.kafka</groupId>
