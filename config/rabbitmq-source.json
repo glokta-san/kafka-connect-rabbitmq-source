@@ -8,6 +8,14 @@
         "rabbitmq.prefetch.count" : "500",
         "rabbitmq.automatic.recovery.enabled" : "true",
         "rabbitmq.network.recovery.interval.ms" : "10000",
-        "rabbitmq.topology.recovery.enabled" : "true"
+        "rabbitmq.topology.recovery.enabled" : "true",
+        "rabbitmq.ssl.enabled" : "true",
+        "rabbitmq.ssl.algorithm" : "TLSv1.3",
+        "rabbitmq.ssl.truststore.path" : "/opt/rabbitmq/client-truststore.p12",
+        "rabbitmq.ssl.truststore.password" : "changeit",
+        "rabbitmq.ssl.truststore.type" : "PKCS12",
+        "rabbitmq.ssl.keystore.path" : "/opt/rabbitmq/client-keystore.p12",
+        "rabbitmq.ssl.keystore.password" : "changeit",
+        "rabbitmq.ssl.keystore.type" : "PKCS12"
     }
 }
