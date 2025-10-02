@@ -113,6 +113,28 @@ Go to the RabbitMQ site at the following URL: `http://localhost:15672/`
 
 Create a new queue `rabbitmq_test`.
 
+### TLS / SSL configuration
+
+When connecting to a RabbitMQ broker that requires TLS, enable TLS in the connector configuration and supply the TLS material as needed.
+
+```
+rabbitmq.ssl.enabled=true
+# Optional – defaults to TLSv1.2
+rabbitmq.ssl.algorithm=TLSv1.3
+
+# Truststore used to validate the broker certificate
+rabbitmq.ssl.truststore.path=/opt/rabbitmq/client-truststore.p12
+rabbitmq.ssl.truststore.password=changeit
+rabbitmq.ssl.truststore.type=PKCS12
+
+# Optional keystore when using mutual TLS
+rabbitmq.ssl.keystore.path=/opt/rabbitmq/client-keystore.p12
+rabbitmq.ssl.keystore.password=changeit
+rabbitmq.ssl.keystore.type=PKCS12
+```
+
+If TLS is enabled without providing custom trust or key stores, the connector falls back to the JVM defaults. Leaving the keystore properties empty disables client certificate authentication while still using TLS to encrypt the connection.
+
 ### Kafka Record Key
 
 When sending message to RabbitMQ, include the key from the Kafka record in the headers as "keyValue". (Only string keys are supported at the moment)

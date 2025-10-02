@@ -3,7 +3,16 @@ package com.ibm.eventstreams.connect.rabbitmqsource.config;
 import com.rabbitmq.client.ConnectionFactory;
 import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef;
+import org.apache.kafka.common.config.ConfigException;
+import org.apache.kafka.common.config.types.Password;
 
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManagerFactory;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.security.GeneralSecurityException;
+import java.security.KeyStore;
 import java.util.Map;
 
 class RabbitMQConnectorConfig extends AbstractConfig {
@@ -65,6 +74,39 @@ class RabbitMQConnectorConfig extends AbstractConfig {
     public static final String CONFIG_DOCUMENTATION_RABBITMQ_NETWORK_RECOVERY_INTERVAL = "The time before a retry on an automatic recovery is performed (default 5 seconds).";
 
     public final ConnectionFactory connectionFactory;
+    public final boolean sslEnabled;
+    public static final String CONFIG_NAME_RABBITMQ_SSL_ENABLED = "rabbitmq.ssl.enabled";
+    public static final String CONFIG_DOCUMENTATION_RABBITMQ_SSL_ENABLED = "Enable TLS/SSL when connecting to RabbitMQ.";
+
+    public final String sslAlgorithm;
+    public static final String CONFIG_NAME_RABBITMQ_SSL_ALGORITHM = "rabbitmq.ssl.algorithm";
+    public static final String CONFIG_DOCUMENTATION_RABBITMQ_SSL_ALGORITHM = "TLS protocol algorithm used when SSL is enabled.";
+
+    public final String sslTruststorePath;
+    public static final String CONFIG_NAME_RABBITMQ_SSL_TRUSTSTORE_PATH = "rabbitmq.ssl.truststore.path";
+    public static final String CONFIG_DOCUMENTATION_RABBITMQ_SSL_TRUSTSTORE_PATH = "Path to the truststore used to validate the RabbitMQ server certificate.";
+
+    public final String sslTruststorePassword;
+    public static final String CONFIG_NAME_RABBITMQ_SSL_TRUSTSTORE_PASSWORD = "rabbitmq.ssl.truststore.password";
+    public static final String CONFIG_DOCUMENTATION_RABBITMQ_SSL_TRUSTSTORE_PASSWORD = "Password for the truststore when TLS is enabled.";
+
+    public final String sslTruststoreType;
+    public static final String CONFIG_NAME_RABBITMQ_SSL_TRUSTSTORE_TYPE = "rabbitmq.ssl.truststore.type";
+    public static final String CONFIG_DOCUMENTATION_RABBITMQ_SSL_TRUSTSTORE_TYPE = "Type of the truststore (for example JKS or PKCS12).";
+
+    public final String sslKeystorePath;
+    public static final String CONFIG_NAME_RABBITMQ_SSL_KEYSTORE_PATH = "rabbitmq.ssl.keystore.path";
+    public static final String CONFIG_DOCUMENTATION_RABBITMQ_SSL_KEYSTORE_PATH = "Optional path to the keystore containing the client certificate for mutual TLS.";
+
+    public final String sslKeystorePassword;
+    public static final String CONFIG_NAME_RABBITMQ_SSL_KEYSTORE_PASSWORD = "rabbitmq.ssl.keystore.password";
+    public static final String CONFIG_DOCUMENTATION_RABBITMQ_SSL_KEYSTORE_PASSWORD = "Password protecting the optional keystore when TLS is enabled.";
+
+    public final String sslKeystoreType;
+    public static final String CONFIG_NAME_RABBITMQ_SSL_KEYSTORE_TYPE = "rabbitmq.ssl.keystore.type";
+    public static final String CONFIG_DOCUMENTATION_RABBITMQ_SSL_KEYSTORE_TYPE = "Type of the optional keystore (for example JKS or PKCS12).";
+
+    public final SSLContext sslContext;
 
 
     public RabbitMQConnectorConfig(ConfigDef definition, Map<?, ?> originals) {
@@ -84,6 +126,15 @@ class RabbitMQConnectorConfig extends AbstractConfig {
         this.automaticRecoveryEnabled = this.getBoolean(CONFIG_NAME_RABBITMQ_AUTOMATIC_RECOVERY_ENABLED);
         this.topologyRecoveryEnabled = this.getBoolean(CONFIG_NAME_RABBITMQ_TOPOLOGY_RECOVERY_ENABLED);
         this.networkRecoveryInterval = this.getInt(CONFIG_NAME_RABBITMQ_NETWORK_RECOVERY_INTERVAL);
+        this.sslEnabled = this.getBoolean(CONFIG_NAME_RABBITMQ_SSL_ENABLED);
+        this.sslAlgorithm = this.getString(CONFIG_NAME_RABBITMQ_SSL_ALGORITHM);
+        this.sslTruststorePath = this.getString(CONFIG_NAME_RABBITMQ_SSL_TRUSTSTORE_PATH);
+        this.sslTruststorePassword = passwordValue(this.getPassword(CONFIG_NAME_RABBITMQ_SSL_TRUSTSTORE_PASSWORD));
+        this.sslTruststoreType = this.getString(CONFIG_NAME_RABBITMQ_SSL_TRUSTSTORE_TYPE);
+        this.sslKeystorePath = this.getString(CONFIG_NAME_RABBITMQ_SSL_KEYSTORE_PATH);
+        this.sslKeystorePassword = passwordValue(this.getPassword(CONFIG_NAME_RABBITMQ_SSL_KEYSTORE_PASSWORD));
+        this.sslKeystoreType = this.getString(CONFIG_NAME_RABBITMQ_SSL_KEYSTORE_TYPE);
+        this.sslContext = this.sslEnabled ? buildSslContext() : null;
 
         this.connectionFactory = connectionFactory();
     }
@@ -105,6 +156,14 @@ class RabbitMQConnectorConfig extends AbstractConfig {
         config.define(CONFIG_NAME_RABBITMQ_AUTOMATIC_RECOVERY_ENABLED, ConfigDef.Type.BOOLEAN, true, ConfigDef.Importance.LOW, CONFIG_DOCUMENTATION_RABBITMQ_AUTOMATIC_RECOVERY_ENABLED);
         config.define(CONFIG_NAME_RABBITMQ_TOPOLOGY_RECOVERY_ENABLED, ConfigDef.Type.BOOLEAN, true, ConfigDef.Importance.LOW, CONFIG_DOCUMENTATION_RABBITMQ_TOPOLOGY_RECOVERY_ENABLED);
         config.define(CONFIG_NAME_RABBITMQ_NETWORK_RECOVERY_INTERVAL, ConfigDef.Type.INT, 10000, ConfigDef.Importance.LOW, CONFIG_DOCUMENTATION_RABBITMQ_NETWORK_RECOVERY_INTERVAL);
+        config.define(CONFIG_NAME_RABBITMQ_SSL_ENABLED, ConfigDef.Type.BOOLEAN, false, ConfigDef.Importance.MEDIUM, CONFIG_DOCUMENTATION_RABBITMQ_SSL_ENABLED);
+        config.define(CONFIG_NAME_RABBITMQ_SSL_ALGORITHM, ConfigDef.Type.STRING, "TLSv1.2", ConfigDef.Importance.LOW, CONFIG_DOCUMENTATION_RABBITMQ_SSL_ALGORITHM);
+        config.define(CONFIG_NAME_RABBITMQ_SSL_TRUSTSTORE_PATH, ConfigDef.Type.STRING, "", ConfigDef.Importance.MEDIUM, CONFIG_DOCUMENTATION_RABBITMQ_SSL_TRUSTSTORE_PATH);
+        config.define(CONFIG_NAME_RABBITMQ_SSL_TRUSTSTORE_PASSWORD, ConfigDef.Type.PASSWORD, "", ConfigDef.Importance.LOW, CONFIG_DOCUMENTATION_RABBITMQ_SSL_TRUSTSTORE_PASSWORD);
+        config.define(CONFIG_NAME_RABBITMQ_SSL_TRUSTSTORE_TYPE, ConfigDef.Type.STRING, KeyStore.getDefaultType(), ConfigDef.Importance.LOW, CONFIG_DOCUMENTATION_RABBITMQ_SSL_TRUSTSTORE_TYPE);
+        config.define(CONFIG_NAME_RABBITMQ_SSL_KEYSTORE_PATH, ConfigDef.Type.STRING, "", ConfigDef.Importance.LOW, CONFIG_DOCUMENTATION_RABBITMQ_SSL_KEYSTORE_PATH);
+        config.define(CONFIG_NAME_RABBITMQ_SSL_KEYSTORE_PASSWORD, ConfigDef.Type.PASSWORD, "", ConfigDef.Importance.LOW, CONFIG_DOCUMENTATION_RABBITMQ_SSL_KEYSTORE_PASSWORD);
+        config.define(CONFIG_NAME_RABBITMQ_SSL_KEYSTORE_TYPE, ConfigDef.Type.STRING, KeyStore.getDefaultType(), ConfigDef.Importance.LOW, CONFIG_DOCUMENTATION_RABBITMQ_SSL_KEYSTORE_TYPE);
 
         return config;
     }
@@ -113,6 +172,7 @@ class RabbitMQConnectorConfig extends AbstractConfig {
         ConnectionFactory connectionFactory = new ConnectionFactory();
 
         connectionFactory.setHost(this.host);
+        connectionFactory.setPort(this.port);
         connectionFactory.setUsername(this.username);
         connectionFactory.setPassword(this.password);
         connectionFactory.setVirtualHost(this.virtualHost);
@@ -125,9 +185,79 @@ class RabbitMQConnectorConfig extends AbstractConfig {
         connectionFactory.setAutomaticRecoveryEnabled(this.automaticRecoveryEnabled);
         connectionFactory.setTopologyRecoveryEnabled(this.topologyRecoveryEnabled);
         connectionFactory.setNetworkRecoveryInterval(this.networkRecoveryInterval);
-        connectionFactory.setPort(this.port);
+
+        if (this.sslEnabled) {
+            try {
+                if (this.sslContext != null) {
+                    connectionFactory.useSslProtocol(this.sslContext);
+                } else {
+                    connectionFactory.useSslProtocol();
+                }
+            } catch (GeneralSecurityException e) {
+                throw new ConfigException("Failed to enable TLS for RabbitMQ connection", e);
+            }
+        }
 
         return connectionFactory;
+    }
+
+    private SSLContext buildSslContext() {
+        try {
+            String algorithm = defaultIfBlank(this.sslAlgorithm, "TLSv1.2");
+            SSLContext context = SSLContext.getInstance(algorithm);
+
+            KeyManagerFactory keyManagerFactory = null;
+            if (!this.sslKeystorePath.isEmpty()) {
+                KeyStore keyStore = loadKeyStore(defaultIfBlank(this.sslKeystoreType, KeyStore.getDefaultType()), this.sslKeystorePath, this.sslKeystorePassword);
+                keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+                keyManagerFactory.init(keyStore, passwordChars(this.sslKeystorePassword));
+            }
+
+            TrustManagerFactory trustManagerFactory = null;
+            if (!this.sslTruststorePath.isEmpty()) {
+                KeyStore trustStore = loadKeyStore(defaultIfBlank(this.sslTruststoreType, KeyStore.getDefaultType()), this.sslTruststorePath, this.sslTruststorePassword);
+                trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+                trustManagerFactory.init(trustStore);
+            }
+
+            context.init(keyManagerFactory != null ? keyManagerFactory.getKeyManagers() : null,
+                    trustManagerFactory != null ? trustManagerFactory.getTrustManagers() : null,
+                    null);
+
+            return context;
+        } catch (IOException | GeneralSecurityException e) {
+            throw new ConfigException("Failed to load SSL configuration", e);
+        }
+    }
+
+    private static KeyStore loadKeyStore(String type, String path, String password) throws GeneralSecurityException, IOException {
+        KeyStore keyStore = KeyStore.getInstance(defaultIfBlank(type, KeyStore.getDefaultType()));
+        try (FileInputStream inputStream = new FileInputStream(path)) {
+            keyStore.load(inputStream, passwordArray(password));
+        }
+        return keyStore;
+    }
+
+    private static char[] passwordArray(String password) {
+        if (password == null || password.isEmpty()) {
+            return null;
+        }
+        return password.toCharArray();
+    }
+
+    private static char[] passwordChars(String password) {
+        if (password == null) {
+            return new char[0];
+        }
+        return password.toCharArray();
+    }
+
+    private static String passwordValue(Password password) {
+        return password == null ? "" : password.value();
+    }
+
+    private static String defaultIfBlank(String value, String defaultValue) {
+        return value == null || value.trim().isEmpty() ? defaultValue : value;
     }
 
 }
