@@ -5,57 +5,33 @@ The connector is supplied as source code which you can easily build into a JAR f
 
 ## Installation
 
-1. Clone the repository with the following command:
+1. Clone the repository and enter the project directory:
 
 ```bash
-git@github.com:ibm-messaging/kafka-connect-rabbitmq-source.git
+git clone https://github.com/ibm-messaging/kafka-connect-rabbitmq-source.git
+cd kafka-connect-rabbitmq-source
 ```
 
-2. Change directory to the `kafka-connect-mq-source` directory:
-
-```shell
-cd kafka-connect-mq-source
-```
-
-3. Build the connector using Maven:
+2. Build the connector using Maven (requires Java 17+):
 
 ```bash
 mvn clean package
 ```
 
-4. Setup a local zookeeper service running on port 2181 (default) 
+The build produces two artifacts under `target/`:
 
-5. Setup a local kafka service running on port 9092 (default)
+* `kafka-connect-rabbitmq-source-1.0-SNAPSHOT.jar` – the plain connector jar (used for development).
+* `kafka-connect-rabbitmq-source-1.0-SNAPSHOT-jar-with-dependencies.jar` – a fat jar that includes the RabbitMQ client library. Use this when copying the connector into a Kafka Connect plugin directory.
 
-6. Setup a local rabbitmq service running on port 15672 (default)
+3. Provision Kafka, Kafka Connect, and RabbitMQ. The connector works with any Kafka Connect 3.9+ runtime. For a local development environment you can reuse the Kafka tooling distributed with Apache Kafka or Confluent Platform. For Kubernetes deployments see [Running on Strimzi](#running-on-strimzi).
 
-7. Copy the compiled jar file into the `/usr/local/share/java/` directory:
+4. Copy the assembled jar (`*-jar-with-dependencies.jar`) into a Kafka Connect plugin directory – for example `/usr/local/share/kafka/plugins/rabbitmq-source/` when running Connect locally.
 
-```bash
-cp target/kafka-connect-rabbitmq-source-1.0-SNAPSHOT-jar-with-dependencies.jar /usr/local/share/java/
-```
-
-8. Copy the `connect-standalone.properties` and `rabbitmq-source.properties` files into the `/usr/local/etc/kafka/` directory.
-
-```bash
-cp config/* /usr/local/etc/kafka/
-```
-
-9. Go to the kafka installation directory `/usr/local/etc/kafka/`:
-
-```bash
-cd /usr/local/etc/kafka/
-```
-
-10. Set the CLASSPATH value to `/usr/local/share/java/` as follows:
-
-```bash
-export CLASSPATH=/usr/local/share/java/
-```
+5. Ensure the plugin directory is referenced by the worker configuration via the `plugin.path` property (comma-separated list of directories). Restart the Kafka Connect worker after adding the connector jar.
 
 ## Running in Standalone Mode
 
-Run the following command to start the source connector service in standalone mode:
+Copy the sample worker and connector property files in [`config/`](config/) to your Kafka installation directory and adjust the RabbitMQ host/credentials as required. Then run the following command to start the source connector service in standalone mode:
 
 ```bash
 connect-standalone connect-standalone.properties rabbitmq-source.properties
@@ -85,13 +61,13 @@ Kafka Connect service by creating a JSON file in the format below:
 A version of this file, `config/rabbitmq-source.json`, is located in the `config` directory.  To register
 the connector do the following:
 
-1. Run the following command to the start the source connector service in distributed mode:
+1. Start the Kafka Connect distributed worker:
 
 ```bash
 connect-distributed connect-distributed.properties
 ```
 
-2. Run the following command to register the connector with the Kafka Connect service:
+2. Register the connector with the Kafka Connect REST API:
 
 ```bash
 curl -s -X POST -H 'Content-Type: application/json' --data @config/rabbitmq-source.json http://localhost:8083/connectors
@@ -112,6 +88,84 @@ kafka-topics --create --topic kafka_test --partitions 3 --replication-factor 1 -
 Go to the RabbitMQ site at the following URL: `http://localhost:15672/`
 
 Create a new queue `rabbitmq_test`.
+
+## Running on Strimzi
+
+When running on Kubernetes with [Strimzi](https://strimzi.io/), package the connector as a Kafka Connect plugin archive and reference it from a `KafkaConnect` custom resource.
+
+1. Build the connector:
+
+    ```bash
+    mvn clean package
+    ```
+
+2. Stage the plugin contents using the fat jar produced in the previous step:
+
+    ```bash
+    rm -rf build/strimzi
+    mkdir -p build/strimzi/rabbitmq-source/lib
+    cp target/kafka-connect-rabbitmq-source-1.0-SNAPSHOT-jar-with-dependencies.jar build/strimzi/rabbitmq-source/lib/
+    cat <<'EOF' > build/strimzi/rabbitmq-source/manifest.json
+    {
+      "name": "rabbitmq-source",
+      "version": "1.0-SNAPSHOT",
+      "description": "RabbitMQ source connector for Kafka Connect",
+      "connectors": [
+        {
+          "name": "RabbitMQSourceConnector",
+          "class": "com.ibm.eventstreams.connect.rabbitmqsource.RabbitMQSourceConnector",
+          "type": "source"
+        }
+      ]
+    }
+    EOF
+    ```
+
+3. Create the plugin archive that Strimzi can download:
+
+    ```bash
+    (cd build/strimzi && zip -r rabbitmq-source-1.0-SNAPSHOT.zip rabbitmq-source)
+    ```
+
+   Host the resulting ZIP file somewhere accessible to the Strimzi build process, for example in an internal artifact repository or an object storage bucket.
+
+4. Reference the ZIP artifact from your `KafkaConnect` resource. The snippet below (also available as [`config/strimzi-kafkaconnect.yaml`](config/strimzi-kafkaconnect.yaml)) extends Strimzi's example by adding the RabbitMQ connector to the build:
+
+    ```yaml
+    apiVersion: kafka.strimzi.io/v1beta2
+    kind: KafkaConnect
+    metadata:
+      name: connect
+      namespace: playback
+      annotations:
+        strimzi.io/use-connector-resources: "true"
+    spec:
+      replicas: 1
+      bootstrapServers: kafka-cluster-kafka-bootstrap.playback.svc.cluster.local:9092
+
+      build:
+        output:
+          type: docker
+          image: docker.io/example/kafka-connect-rabbitmq:1.0.0
+          pushSecret: dockerhub-credentials
+        plugins:
+          - name: rabbitmq-source
+            artifacts:
+              - type: zip
+                url: https://artifacts.example.com/rabbitmq-source-1.0-SNAPSHOT.zip
+
+      config:
+        group.id: connect-cluster
+        offset.storage.topic: connect-offsets
+        config.storage.topic: connect-configs
+        status.storage.topic: connect-status
+        offset.storage.replication.factor: 1
+        config.storage.replication.factor: 1
+        status.storage.replication.factor: 1
+        connector.client.config.override.policy: All
+    ```
+
+5. Apply the resource with `kubectl apply -f <file>.yaml`. Strimzi builds a container image that includes the RabbitMQ connector and runs it as part of the Connect cluster. After the pod is ready you can create `KafkaConnector` custom resources (or use the REST API) to deploy specific RabbitMQ source instances.
 
 ### TLS / SSL configuration
 
@@ -152,7 +206,7 @@ kafka-console-consumer --topic kafka_test --from-beginning --bootstrap-server 12
 ```
 
 ## Issues and contributions
-For issues relating specifically to this connector, please use the [GitHub issue tracker](https://github.com/ibm-messaging/kafka-connect-jdbc-sink/issues). If you do want to submit a Pull Request related to this connector, please read the [contributing guide](CONTRIBUTING.md) first to understand how to sign your commits.
+For issues relating specifically to this connector, please use the [GitHub issue tracker](https://github.com/ibm-messaging/kafka-connect-rabbitmq-source/issues). If you do want to submit a Pull Request related to this connector, please read the [contributing guide](CONTRIBUTING.md) first to understand how to sign your commits.
 
 
 ## License
@@ -168,4 +222,4 @@ Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
-limitations under the License.The project is licensed under the Apache 2 license.
+limitations under the License. The project is licensed under the Apache 2 license.

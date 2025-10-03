@@ -1,0 +1,31 @@
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnect
+metadata:
+  name: connect
+  namespace: playback
+  annotations:
+    strimzi.io/use-connector-resources: "true"
+spec:
+  replicas: 1
+  bootstrapServers: kafka-cluster-kafka-bootstrap.playback.svc.cluster.local:9092
+
+  build:
+    output:
+      type: docker
+      image: docker.io/example/kafka-connect-rabbitmq:1.0.0
+      pushSecret: dockerhub-credentials
+    plugins:
+      - name: rabbitmq-source
+        artifacts:
+          - type: zip
+            url: https://artifacts.example.com/rabbitmq-source-1.0-SNAPSHOT.zip
+
+  config:
+    group.id: connect-cluster
+    offset.storage.topic: connect-offsets
+    config.storage.topic: connect-configs
+    status.storage.topic: connect-status
+    offset.storage.replication.factor: 1
+    config.storage.replication.factor: 1
+    status.storage.replication.factor: 1
+    connector.client.config.override.policy: All
