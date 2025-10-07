@@ -7,15 +7,15 @@
     <groupId>com.ibm.eventstreams.connect</groupId>
     <artifactId>kafka-connect-rabbitmq-source</artifactId>
     <packaging>jar</packaging>
-    <version>1.0-SNAPSHOT</version>
+    <version>1.1.0</version>
     <name>kafka-connect-rabbitmq-source</name>
     <organization>
-        <name>IBM Corporation</name>
-        <url>http://ibm.com</url>
+        <name>Community Maintainers</name>
+        <url>https://github.com/glokta-san/kafka-connect-rabbitmq-source</url>
     </organization>
-    <url>http://ibm.com</url>
+    <url>https://github.com/glokta-san/kafka-connect-rabbitmq-source</url>
     <description>
-        A Kafka Connect connector for copying data from RabbitMQ into Apache Kafka.
+        Community-maintained fork of IBM's RabbitMQ source connector with updates for modern Kafka Connect runtimes and TLS hardening. Release 1.1.0 highlights the compatibility and TLS upgrades layered on top of the upstream project.
     </description>
     <licenses>
         <license>
@@ -24,6 +24,12 @@
             <distribution>repo</distribution>
         </license>
     </licenses>
+    <scm>
+        <connection>scm:git:https://github.com/glokta-san/kafka-connect-rabbitmq-source.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/glokta-san/kafka-connect-rabbitmq-source.git</developerConnection>
+        <url>https://github.com/glokta-san/kafka-connect-rabbitmq-source</url>
+        <tag>HEAD</tag>
+    </scm>
     <build>
         <plugins>
             <plugin>
