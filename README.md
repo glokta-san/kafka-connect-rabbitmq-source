@@ -14,7 +14,7 @@ The connector is supplied as source code which you can easily build into a JAR f
 
 ## Release highlights
 
-### 1.1.0 (current)
+### 0.0.1 (current)
 
 - Modernised for Kafka Connect 3.x/4.x runtimes by compiling against Java 17 APIs.
 - TLS defaults tightened with clearer guidance for supplying trust and key material.
@@ -28,7 +28,7 @@ release.
 
 | Connector | Kafka Connect baseline | Java runtime |
 |-----------|------------------------|--------------|
-| 1.1.0     | 3.9.x                  | 17           |
+| 0.0.1     | 3.9.x                  | 17           |
 
 ## Installation
 
@@ -60,7 +60,7 @@ mvn clean package
    filename if you are packaging a newer release tag:
 
 ```bash
-cp target/kafka-connect-rabbitmq-source-1.1.0-jar-with-dependencies.jar /usr/local/share/java/
+cp target/kafka-connect-rabbitmq-source-0.0.1-jar-with-dependencies.jar /usr/local/share/java/
 ```
 
 8. Copy the `connect-standalone.properties` and `rabbitmq-source.properties` files into the `/usr/local/etc/kafka/` directory.
