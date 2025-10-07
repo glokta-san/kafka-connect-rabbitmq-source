@@ -7,7 +7,7 @@
     <groupId>com.ibm.eventstreams.connect</groupId>
     <artifactId>kafka-connect-rabbitmq-source</artifactId>
     <packaging>jar</packaging>
-    <version>0.0.1</version>
+    <version>1.1.0</version>
     <name>kafka-connect-rabbitmq-source</name>
     <organization>
         <name>Community Maintainers</name>
@@ -15,7 +15,7 @@
     </organization>
     <url>https://github.com/glokta-san/kafka-connect-rabbitmq-source</url>
     <description>
-        Community-maintained fork of IBM's RabbitMQ source connector with updates for modern Kafka Connect runtimes and TLS hardening. Release 0.0.1 highlights the compatibility and TLS upgrades layered on top of the upstream project.
+        Community-maintained fork of IBM's RabbitMQ source connector with updates for modern Kafka Connect runtimes and TLS hardening. Release 1.1.0 highlights the compatibility and TLS upgrades layered on top of the upstream project.
     </description>
     <licenses>
         <license>

@@ -12,7 +12,7 @@ import java.util.Map;
 public class RabbitMQSourceConnector extends SourceConnector {
     RabbitMQSourceConnectorConfig config;
 
-    public static String VERSION = "0.0.1";
+    public static String VERSION = "1.1.0";
 
     private Map<String, String> props;
 
